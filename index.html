@@ -2,425 +2,526 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>เกมสัตว์โลกน่ารัก</title>
-    
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>เกมสัตว์โลกน่ารัก V2</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Google Fonts: Sarabun -->
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700;800&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden; /* ป้องกันการเลื่อนหน้าจอทั้งใบ */
-            font-family: 'Sarabun', sans-serif;
-            touch-action: none; /* ป้องกันการย่อขยายและเลื่อนหน้าจอด้วยนิ้ว */
-            -webkit-user-select: none;
+        /* Base Settings */
+        :root {
+            --app-height: 100dvh;
+        }
+
+        body {
+            font-family: 'Mali', cursive;
+            touch-action: none; /* ป้องกันการ zoom/scroll ในระดับ global */
+            background-color: #87CEEB;
+            background-image: 
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath fill='%23FFFFFF' opacity='0.3' d='M20 80c-6.6 0-12-5.4-12-12s5.4-12 12-12h60c6.6 0 12 5.4 12 12s-5.4 12-12 12H20zM35 70c-4.4 0-8-3.6-8-8s3.6-8 8-8h40c4.4 0 8 3.6 8 8s-3.6 8-8 8H35zM10 60c-2.2 0-4-1.8-4-4s1.8-4 4-4h20c2.2 0 4 1.8 4 4s-1.8 4-4 4H10z'/%3E%3C/svg%3E"),
+                linear-gradient(to bottom, #87CEEB, #B0E0E6);
+            background-repeat: repeat-x, no-repeat;
+            background-position: 0 0, 0 0;
+            overflow: hidden; /* ห้าม scroll หน้าจอหลัก */
+            height: var(--app-height);
+            width: 100vw;
             user-select: none;
-            -webkit-touch-callout: none;
-            overscroll-behavior: none; /* ป้องกันเอฟเฟกต์เด้งดึ๋งเวลาเลื่อนสุดขอบ */
+            -webkit-user-select: none;
         }
-        
-        #root {
-            width: 100%;
-            height: 100%;
+
+        /* UI Styles */
+        header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
+
+        h1 {
+            color: #FF8C00;
+            text-shadow: 2px 2px 0px #FFF, 3px 3px 0px rgba(0,0,0,0.1);
+        }
+
+        /* Draggable Items */
+        .draggable-item {
+            cursor: grab;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+            will-change: transform, left, top;
+        }
+
+        .draggable-item:active {
+            cursor: grabbing;
+            transform: scale(1.15) rotate(3deg);
+            z-index: 9999 !important;
+            box-shadow: 0 15px 25px rgba(0,0,0,0.15);
+        }
+
+        /* Baskets */
+        .basket {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 1.5rem;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(4px);
+            border: 3px solid transparent;
+        }
+
+        .basket.hovered {
+            transform: scale(1.05) translateY(-5px);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: currentColor; /* ใช้สีตัวหนังสือเป็นสีขอบ */
+        }
+
+        /* Basket Colors */
+        .basket[data-category="water"] { color: #0288D1; background-color: rgba(225, 245, 254, 0.8); }
+        .basket[data-category="land"] { color: #388E3C; background-color: rgba(232, 245, 233, 0.8); }
+        .basket[data-category="reptile"] { color: #E65100; background-color: rgba(255, 243, 224, 0.8); }
+        .basket[data-category="wing"] { color: #C2185B; background-color: rgba(252, 228, 236, 0.8); }
 
         /* Animations */
-        @keyframes bounce-slow { 0%, 100% { transform: translateY(-5%); } 50% { transform: translateY(5%); } }
-        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes pop-in { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes wiggle { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
-        @keyframes fall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(360deg); opacity: 0; } }
-        @keyframes bounce-in { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.05); opacity: 1; } 70% { transform: scale(0.9); } 100% { transform: scale(1); } }
-        
-        .animate-bounce-slow { animation: bounce-slow 3s infinite ease-in-out; }
-        .animate-spin-slow { animation: spin-slow 8s linear infinite; }
-        .animate-pop-in { animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        .animate-wiggle { animation: wiggle 0.4s ease-in-out infinite; }
-        .animate-fall { animation: fall linear forwards; }
-        .animate-bounce-in { animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px) rotate(-5deg); }
+            75% { transform: translateX(8px) rotate(5deg); }
+        }
+        .shake { animation: shake 0.4s ease-in-out; border: 3px solid #FF5252 !important; }
 
-        /* Custom Scrollbar for animal list */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.05);
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(0,0,0,0.2);
-            border-radius: 4px;
+        .pop-in { animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+        /* Responsive Text */
+        @media (max-width: 380px) {
+            h1 { font-size: 1.5rem !important; }
+            #score-container span { font-size: 0.9rem !important; }
+            .basket h2 { font-size: 0.9rem !important; }
+            .basket-icon { font-size: 1.5rem !important; }
         }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="flex flex-col">
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
+    <!-- Header -->
+    <header class="flex justify-between items-center px-3 py-2 z-20 shrink-0 h-[60px] md:h-[80px]">
+        <h1 class="flex items-center gap-2 text-2xl md:text-4xl font-bold truncate">
+            <span class="text-3xl md:text-5xl drop-shadow-md">🦁</span> 
+            <span class="hidden xs:inline">เกมสัตว์น่ารัก</span>
+            <span class="xs:hidden">เกมสัตว์</span>
+        </h1>
+        <div class="flex items-center gap-2">
+            <button id="sound-btn" onclick="toggleSound()" class="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition active:scale-95" title="เสียง">
+                🔊
+            </button>
+            <div id="score-container" class="bg-yellow-300 border-2 border-yellow-500 px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                <span class="text-yellow-900 font-bold text-lg" id="score">0</span>
+                <span class="text-yellow-700 text-sm">/ 16</span>
+            </div>
+            <button onclick="resetGame()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm transition active:scale-95 whitespace-nowrap">
+                เริ่มใหม่ 🔄
+            </button>
+        </div>
+    </header>
 
-        // --- Icons (SVG Components) ---
-        const IconSparkles = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5h4"/><path d="M19 15v4"/><path d="M15 17h4"/><path d="M15 7h.01"/><path d="M7 17h.01"/></svg>
-        );
-        const IconTrophy = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-        );
-        const IconRotateCcw = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-        );
-        const IconVolume2 = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-        );
-        const IconVolumeX = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="17" y1="9" y2="15"/><line x1="17" x2="23" y1="9" y2="15"/></svg>
-        );
-        const IconMusic = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        );
-        const IconMusic2 = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="8" cy="18" r="4"/><path d="M12 18V2l7 4"/></svg>
-        );
+    <!-- Main Game Area -->
+    <main class="flex-grow flex flex-col relative w-full max-w-7xl mx-auto h-[calc(100dvh-60px)] md:h-[calc(100dvh-80px)]">
+        
+        <!-- Animal Spawning Area (Top) - พื้นที่สำหรับสัตว์ที่จะให้ลาก -->
+        <div id="animal-container" class="h-[45%] md:h-[50%] w-full overflow-y-auto overflow-x-hidden flex flex-wrap content-start justify-center gap-2 p-2 pb-8 touch-pan-y">
+            <!-- Animals injected by JS -->
+        </div>
 
-        // --- Data & Sounds ---
-        const SOUNDS = {
-            correct: "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbqWEzM2Sfv8zDyGFAREZwn8fKw21KSEhun8fKw21KSEhun8fKw21KSEhun8fKw21KSEhugIqF", 
-            wrong: "data:audio/wav;base64,UklGRiIGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQYGAACam5uCg4KJjI2WlZSSkI+Qj4+RkpGSkI+Qj4+RkpGSkI+Qj4+RkpGSkI+Qj4+RkpGSkI+Qj4+RkpGSkI+Qj4+RkpGSkI+Qj4+RkpCT",
-            start: "data:audio/wav;base64,UklGRjIGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YRIQAACAgYKEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AA==",
-            win: "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbqWEzM2Sfv8zDyGFAREZwn8fKw21KSEhun8fKw21KSEhun8fKw21KSEhun8fKw21KSEhugIqF"
+        <!-- Baskets Area (Bottom) - พื้นที่วางตะกร้า -->
+        <div id="basket-container" class="h-[55%] md:h-[50%] w-full p-2 pb-4 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 items-stretch content-stretch">
+            
+            <div class="basket flex flex-col items-center pt-2 relative overflow-hidden" data-category="water">
+                <div class="basket-icon text-3xl md:text-4xl animate-bounce" style="animation-duration: 3s">🌊</div>
+                <h2 class="font-bold text-base md:text-xl">สัตว์น้ำ</h2>
+                <div class="basket-content w-full flex-grow flex flex-wrap justify-center content-start p-1 gap-1 overflow-hidden"></div>
+            </div>
+
+            <div class="basket flex flex-col items-center pt-2 relative overflow-hidden" data-category="land">
+                <div class="basket-icon text-3xl md:text-4xl animate-bounce" style="animation-duration: 3.5s">🌳</div>
+                <h2 class="font-bold text-base md:text-xl">สัตว์บก</h2>
+                <div class="basket-content w-full flex-grow flex flex-wrap justify-center content-start p-1 gap-1 overflow-hidden"></div>
+            </div>
+
+            <div class="basket flex flex-col items-center pt-2 relative overflow-hidden" data-category="reptile">
+                <div class="basket-icon text-3xl md:text-4xl animate-bounce" style="animation-duration: 4s">🦎</div>
+                <h2 class="font-bold text-base md:text-xl">เลื้อยคลาน</h2>
+                <div class="basket-content w-full flex-grow flex flex-wrap justify-center content-start p-1 gap-1 overflow-hidden"></div>
+            </div>
+
+            <div class="basket flex flex-col items-center pt-2 relative overflow-hidden" data-category="wing">
+                <div class="basket-icon text-3xl md:text-4xl animate-bounce" style="animation-duration: 4.5s">🕊️</div>
+                <h2 class="font-bold text-base md:text-xl">สัตว์ปีก</h2>
+                <div class="basket-content w-full flex-grow flex flex-wrap justify-center content-start p-1 gap-1 overflow-hidden"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Victory Modal -->
+    <div id="victory-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white p-6 md:p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full border-8 border-yellow-400 transform transition-all scale-100 animate-[popIn_0.5s]">
+            <div class="text-6xl mb-4 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-bold mb-2 text-orange-600">สุดยอดไปเลย!</h2>
+            <p class="text-gray-600 mb-6 text-lg">หนูแยกประเภทสัตว์ได้ถูกต้องทั้งหมด</p>
+            <button onclick="resetGame()" class="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-xl font-bold py-3 px-6 rounded-2xl shadow-lg transform active:scale-95 transition-all">
+                เล่นอีกครั้ง 🎮
+            </button>
+        </div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="fixed inset-0 bg-sky-200/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-8 rounded-3xl max-w-md w-full text-center shadow-xl border-4 border-sky-400">
+            <h2 class="text-3xl font-bold mb-4 text-sky-700">สวนสัตว์หรรษา</h2>
+            <p class="mb-6 text-lg text-gray-600">ลากรูปสัตว์ไปใส่ในตะกร้าให้ถูกต้อง<br>เพื่อช่วยพี่สิงโตจัดระเบียบสวนสัตว์</p>
+            <button onclick="startGame()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 px-10 rounded-full text-xl shadow-lg animate-pulse transition-transform active:scale-95">
+                เริ่มเกมเลย! ▶️
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // --- Game Data ---
+        const animalData = [
+            { name: "ปู", category: "water", src: "https://img2.pic.in.th/pic/5d7beae4ee6af6747.png" },
+            { name: "หอย", category: "water", src: "https://img5.pic.in.th/file/secure-sv1/3bc573c9bb833512a.png" },
+            { name: "ปลา", category: "water", src: "https://img2.pic.in.th/pic/2215b8e7aff998e18.png" },
+            { name: "กุ้ง", category: "water", src: "https://img2.pic.in.th/pic/40aafd240477916f7.png" },
+            { name: "ช้าง", category: "land", src: "https://img5.pic.in.th/file/secure-sv1/121c740a3a6afb93f1.png" },
+            { name: "กระต่าย", category: "land", src: "https://img5.pic.in.th/file/secure-sv1/13215b8ff2c0dbceba.png" },
+            { name: "แมว", category: "land", src: "https://img2.pic.in.th/pic/143c965a970965c27c.png" },
+            { name: "สุนัข", category: "land", src: "https://img5.pic.in.th/file/secure-sv1/15788d8bd3ba727e5b.png" },
+            { name: "งู", category: "reptile", src: "https://img2.pic.in.th/pic/snapedit_1764731201634-Photoroom.png" },
+            { name: "เต่า", category: "reptile", src: "https://img2.pic.in.th/pic/snapedit_1764731213063-Photoroom.png" },
+            { name: "จระเข้", category: "reptile", src: "https://img5.pic.in.th/file/secure-sv1/BeautyPlus-Image-Enhancer-1764731271403-Photoroom.png" },
+            { name: "กิ้งก่า", category: "reptile", src: "https://img2.pic.in.th/pic/BeautyPlus-Image-Enhancer-1764731288459-Photoroom.png" },
+            { name: "ไก่", category: "wing", src: "https://img5.pic.in.th/file/secure-sv1/upscalemedia-transformed-2ead81fa8123cba6e.png" },
+            { name: "นก", category: "wing", src: "https://img2.pic.in.th/pic/upscalemedia-transformed-18f37512dcb643091.png" },
+            { name: "เป็ด", category: "wing", src: "https://img5.pic.in.th/file/secure-sv1/upscalemedia-transformed-36d0d1bc7b6103014.png" },
+            { name: "ผีเสื้อ", category: "wing", src: "https://img2.pic.in.th/pic/upscalemedia-transformed-4.png" }
+        ];
+
+        // --- State ---
+        let score = 0;
+        let completed = 0;
+        let isSoundOn = true;
+        let audioCtx;
+
+        // --- Audio System ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (!isSoundOn || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        const sounds = {
+            pop: () => playTone(600, 'sine', 0.1, 0.1),
+            correct: () => {
+                if (!isSoundOn) return;
+                playTone(523.25, 'sine', 0.1, 0.1); // C5
+                setTimeout(() => playTone(659.25, 'sine', 0.2, 0.1), 100); // E5
+            },
+            wrong: () => {
+                if (!isSoundOn) return;
+                playTone(150, 'sawtooth', 0.3, 0.1);
+                setTimeout(() => playTone(100, 'sawtooth', 0.3, 0.1), 150);
+            },
+            win: () => {
+                if (!isSoundOn) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((f, i) => setTimeout(() => playTone(f, 'square', 0.2, 0.05), i * 150));
+            }
         };
 
-        const CATEGORIES = [
-            { id: 'water', name: 'สัตว์น้ำ', color: 'bg-gradient-to-br from-blue-300 to-blue-400', borderColor: 'border-blue-500', textColor: 'text-blue-900', icon: '🐟' },
-            { id: 'land', name: 'สัตว์บก', color: 'bg-gradient-to-br from-green-300 to-green-400', borderColor: 'border-green-500', textColor: 'text-green-900', icon: '🐘' },
-            { id: 'reptile', name: 'สัตว์เลื้อยคลาน', color: 'bg-gradient-to-br from-orange-300 to-orange-400', borderColor: 'border-orange-500', textColor: 'text-orange-900', icon: '🦎' },
-            { id: 'winged', name: 'สัตว์ปีก', color: 'bg-gradient-to-br from-pink-300 to-pink-400', borderColor: 'border-pink-500', textColor: 'text-pink-900', icon: '🦋' },
-        ];
-
-        const ANIMALS_DATA = [
-            { id: 'w1', name: 'ปู', category: 'water', src: 'https://img2.pic.in.th/pic/5d7beae4ee6af6747.png' },
-            { id: 'w2', name: 'หอย', category: 'water', src: 'https://img5.pic.in.th/file/secure-sv1/3bc573c9bb833512a.png' },
-            { id: 'w3', name: 'ปลา', category: 'water', src: 'https://img2.pic.in.th/pic/2215b8e7aff998e18.png' },
-            { id: 'w4', name: 'กุ้ง', category: 'water', src: 'https://img2.pic.in.th/pic/40aafd240477916f7.png' },
-            { id: 'l1', name: 'ช้าง', category: 'land', src: 'https://img5.pic.in.th/file/secure-sv1/121c740a3a6afb93f1.png' },
-            { id: 'l2', name: 'กระต่าย', category: 'land', src: 'https://img5.pic.in.th/file/secure-sv1/13215b8ff2c0dbceba.png' },
-            { id: 'l3', name: 'แมว', category: 'land', src: 'https://img2.pic.in.th/pic/143c965a970965c27c.png' },
-            { id: 'l4', name: 'สุนัข', category: 'land', src: 'https://img5.pic.in.th/file/secure-sv1/15788d8bd3ba727e5b.png' },
-            { id: 'r1', name: 'งู', category: 'reptile', src: 'https://img2.pic.in.th/pic/snapedit_1764731201634-Photoroom.png' },
-            { id: 'r2', name: 'เต่า', category: 'reptile', src: 'https://img2.pic.in.th/pic/snapedit_1764731213063-Photoroom.png' },
-            { id: 'r3', name: 'จระเข้', category: 'reptile', src: 'https://img5.pic.in.th/file/secure-sv1/BeautyPlus-Image-Enhancer-1764731271403-Photoroom.png' },
-            { id: 'r4', name: 'กิ้งก่า', category: 'reptile', src: 'https://img2.pic.in.th/pic/BeautyPlus-Image-Enhancer-1764731288459-Photoroom.png' },
-            { id: 'wi1', name: 'ไก่', category: 'winged', src: 'https://img5.pic.in.th/file/secure-sv1/upscalemedia-transformed-2ead81fa8123cba6e.png' },
-            { id: 'wi2', name: 'นก', category: 'winged', src: 'https://img2.pic.in.th/pic/upscalemedia-transformed-18f37512dcb643091.png' },
-            { id: 'wi3', name: 'เป็ด', category: 'winged', src: 'https://img5.pic.in.th/file/secure-sv1/upscalemedia-transformed-36d0d1bc7b6103014.png' },
-            { id: 'wi4', name: 'ผีเสื้อ', category: 'winged', src: 'https://img2.pic.in.th/pic/upscalemedia-transformed-4.png' },
-        ];
-
-        const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
-
-        // --- Audio Logic ---
-        class MusicSynthesizer {
-            constructor() {
-                this.ctx = null;
-                this.isPlaying = false;
-                this.tempo = 180;
-                this.oscillatorType = 'triangle';
-                this.sequence = 0;
-                this.timeoutId = null;
-            }
-            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
-            playNote(freq, duration, time) {
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = this.oscillatorType;
-                osc.frequency.setValueAtTime(freq, time);
-                gain.gain.setValueAtTime(0.05, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + duration - 0.05);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start(time);
-                osc.stop(time + duration);
-            }
-            start() {
-                this.init();
-                if (this.isPlaying || !this.ctx) return;
-                if (this.ctx.state === 'suspended') this.ctx.resume();
-                this.isPlaying = true;
-                this.scheduleNextNote();
-            }
-            stop() { this.isPlaying = false; clearTimeout(this.timeoutId); }
-            scheduleNextNote() {
-                if (!this.isPlaying || !this.ctx) return;
-                const time = this.ctx.currentTime;
-                const melody = [523.25, 0, 659.25, 0, 783.99, 0, 1046.50, 783.99, 0, 659.25, 0, 523.25, 0, 0, 587.33, 0, 587.33, 0, 698.46, 0, 880.00, 783.99, 0, 659.25, 0, 523.25, 0, 0];
-                const freq = melody[this.sequence % melody.length];
-                if (freq > 0) this.playNote(freq, 0.2, time);
-                this.sequence++;
-                this.timeoutId = setTimeout(() => this.scheduleNextNote(), (60 / this.tempo) * 1000);
-            }
+        function speak(text) {
+            if (!isSoundOn || !window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'th-TH';
+            utterance.rate = 1;
+            utterance.pitch = 1.1;
+            window.speechSynthesis.speak(utterance);
         }
 
-        const bgmSynth = new MusicSynthesizer();
-        const playSFX = (type) => { try { const audio = new Audio(SOUNDS[type]); audio.volume = 0.6; audio.play().catch(() => {}); } catch (e) {} };
+        function toggleSound() {
+            isSoundOn = !isSoundOn;
+            document.getElementById('sound-btn').innerText = isSoundOn ? "🔊" : "🔇";
+            if(isSoundOn) initAudio();
+        }
 
-        // --- Game Component ---
-        function CuteAnimalsGame() {
-            const [gameState, setGameState] = useState('start');
-            const [animals, setAnimals] = useState([]);
-            const [completedCount, setCompletedCount] = useState(0);
-            const [feedback, setFeedback] = useState(null);
-            const [draggedItem, setDraggedItem] = useState(null);
-            const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
-            const [sfxEnabled, setSfxEnabled] = useState(true);
-            const [musicEnabled, setMusicEnabled] = useState(false);
-            const basketsRef = useRef({});
+        // --- Game Logic ---
+        function startGame() {
+            document.getElementById('start-overlay').classList.add('hidden');
+            initAudio();
+            initGame();
+        }
 
-            useEffect(() => {
-                if (musicEnabled && gameState === 'playing') bgmSynth.start();
-                else bgmSynth.stop();
-                return () => bgmSynth.stop();
-            }, [musicEnabled, gameState]);
+        function initGame() {
+            const container = document.getElementById('animal-container');
+            container.innerHTML = '';
+            
+            // Randomize and Create Elements
+            const shuffled = [...animalData].sort(() => Math.random() - 0.5);
 
-            const toggleMusic = () => setMusicEnabled(!musicEnabled);
-            const speakName = useCallback((text) => {
-                if (!sfxEnabled) return;
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'th-TH';
-                utterance.rate = 0.8;
-                const voices = window.speechSynthesis.getVoices();
-                const thaiVoice = voices.find(v => v.lang.includes('th'));
-                if (thaiVoice) utterance.voice = thaiVoice;
-                window.speechSynthesis.speak(utterance);
-            }, [sfxEnabled]);
-
-            const startGame = () => {
-                setAnimals(shuffle(ANIMALS_DATA).map(a => ({ ...a, completed: false })));
-                setCompletedCount(0);
-                setGameState('playing');
-                setFeedback(null);
-                if (sfxEnabled) playSFX('start');
-                if (!musicEnabled) setMusicEnabled(true);
-            };
-
-            const handlePointerDown = (e, animal) => {
-                if (animal.completed) return;
-                speakName(animal.name);
-                e.preventDefault();
-                e.stopPropagation();
-                e.currentTarget.setPointerCapture(e.pointerId); // Key for touch drag
+            shuffled.forEach(animal => {
+                const el = document.createElement('div');
+                el.className = 'draggable-item w-[22vw] h-[25vw] max-w-[100px] max-h-[120px] md:w-28 md:h-32 flex flex-col items-center justify-center p-1 md:p-2';
+                el.innerHTML = `
+                    <div class="flex-grow w-full flex items-center justify-center overflow-hidden mb-1">
+                        <img src="${animal.src}" class="max-h-full max-w-full object-contain pointer-events-none" alt="${animal.name}" onerror="this.style.display='none';this.parentElement.innerHTML='❓'">
+                    </div>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 pointer-events-none">${animal.name}</span>
+                `;
+                el.dataset.category = animal.category;
+                el.dataset.name = animal.name;
                 
-                const rect = e.currentTarget.getBoundingClientRect();
-                const isTouch = e.pointerType === 'touch';
-                let offsetX = e.clientX - rect.left;
-                let offsetY = e.clientY - rect.top;
+                makeDraggable(el);
+                container.appendChild(el);
+            });
 
-                // Move visual up for touch so finger doesn't hide it
-                if (isTouch) {
-                    offsetX = rect.width / 2;
-                    offsetY = rect.height * 1.5;
-                }
-
-                setDraggedItem({ ...animal, offsetX, offsetY });
-                setDragPosition({ x: e.clientX, y: e.clientY });
-            };
-
-            const handlePointerMove = (e) => {
-                if (!draggedItem) return;
-                e.preventDefault();
-                setDragPosition({ x: e.clientX, y: e.clientY });
-            };
-
-            const handlePointerUp = (e) => {
-                if (!draggedItem) return;
-                e.preventDefault();
-                const dropX = e.clientX;
-                const dropY = e.clientY;
-                let droppedCategory = null;
-
-                Object.keys(basketsRef.current).forEach(key => {
-                    const basket = basketsRef.current[key];
-                    if (basket) {
-                        const rect = basket.getBoundingClientRect();
-                        if (dropX >= rect.left && dropX <= rect.right && dropY >= rect.top && dropY <= rect.bottom) {
-                            droppedCategory = key;
-                        }
-                    }
-                });
-
-                if (droppedCategory) {
-                    if (droppedCategory === draggedItem.category) handleCorrectDrop(draggedItem.id);
-                    else handleWrongDrop();
-                }
-                setDraggedItem(null);
-            };
-
-            const handleCorrectDrop = (id) => {
-                if (sfxEnabled) playSFX('win');
-                speakName('เก่งมากๆๆ');
-                setFeedback({ type: 'correct', msg: 'เก่งมากๆๆ' });
-                setAnimals(prev => prev.map(a => a.id === id ? { ...a, completed: true } : a));
-                setCompletedCount(prev => {
-                    const newCount = prev + 1;
-                    if (newCount === ANIMALS_DATA.length) {
-                        setTimeout(() => { setGameState('won'); if(sfxEnabled) playSFX('win'); }, 1000);
-                    }
-                    return newCount;
-                });
-                setTimeout(() => setFeedback(null), 1500);
-            };
-
-            const handleWrongDrop = () => {
-                if (sfxEnabled) playSFX('wrong');
-                setFeedback({ type: 'wrong', msg: 'อุ๊ย! ผิดตะกร้านะ ลองใหม่นะ' });
-                setTimeout(() => setFeedback(null), 1500);
-            };
-
-            if (gameState === 'start') {
-                return (
-                    <div className="relative w-full h-full bg-cover bg-center overflow-hidden flex flex-col items-center justify-center font-sarabun touch-none">
-                        <div className="absolute inset-0 z-0" style={{ backgroundImage: `url('https://img2.pic.in.th/pic/Gemini_Generated_Image_dt996idt996idt99.png')`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'brightness(0.9)' }} />
-                        <div className="relative z-10 flex flex-col items-center animate-fade-in text-center p-4">
-                            <img src="https://img2.pic.in.th/pic/Gemini_Generated_Image_r6w4wzr6w4wzr6w4-Photoroom.png" alt="สัตว์โลกหน้ารัก" className="max-w-[90%] w-[300px] md:w-[500px] mb-8 drop-shadow-2xl animate-bounce-slow" />
-                            <button onClick={startGame} className="group relative bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-black text-2xl md:text-5xl py-4 px-8 md:py-6 md:px-12 rounded-full border-b-8 border-yellow-600 active:border-b-0 active:translate-y-2 transition-all shadow-xl transform hover:scale-105">
-                                <span className="flex items-center gap-3"><span className="animate-spin-slow text-2xl md:text-4xl">🌟</span> เริ่มเกม <span className="animate-spin-slow text-2xl md:text-4xl">🌟</span></span>
-                            </button>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (gameState === 'won') {
-                return (
-                    <div className="w-full h-full bg-gradient-to-b from-blue-300 to-purple-400 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sarabun touch-none">
-                        {[...Array(20)].map((_, i) => (
-                            <div key={i} className="absolute animate-fall" style={{ left: `${Math.random() * 100}%`, top: `-10%`, animationDuration: `${Math.random() * 3 + 2}s`, animationDelay: `${Math.random() * 2}s`, fontSize: `${Math.random() * 20 + 20}px` }}>{['🎉', '⭐', '🎈', '🦁'][Math.floor(Math.random() * 4)]}</div>
-                        ))}
-                        <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl shadow-2xl text-center max-w-lg w-full z-10 border-4 border-yellow-400">
-                            <div className="flex justify-center mb-4"><IconTrophy size={64} className="text-yellow-500 animate-bounce" /></div>
-                            <h2 className="text-3xl md:text-5xl font-black text-purple-600 mb-4">เก่งมากเลย!</h2>
-                            <div className="flex justify-center mb-6"><span className="text-4xl md:text-6xl animate-bounce">🐘</span><span className="text-4xl md:text-6xl animate-bounce delay-100">🦋</span><span className="text-4xl md:text-6xl animate-bounce delay-200">🐟</span></div>
-                            <button onClick={startGame} className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-400 text-white font-bold text-xl md:text-2xl py-3 md:py-4 rounded-xl shadow-lg border-b-4 border-green-700 active:border-b-0 active:translate-y-1 transition-all">
-                                <IconRotateCcw /> เล่นอีกครั้ง
-                            </button>
-                        </div>
-                    </div>
-                );
-            }
-
-            const remainingAnimals = animals.filter(a => !a.completed);
-
-            return (
-                <div className="w-full h-full bg-gradient-to-b from-sky-50 to-blue-100 flex flex-col overflow-hidden touch-none select-none font-sarabun fixed inset-0"
-                    onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={(e) => e.preventDefault()}>
-                    
-                    {/* Header: Fixed Height */}
-                    <div className="bg-white/90 backdrop-blur-sm p-2 shadow-md flex justify-between items-center z-20 shrink-0 h-14 md:h-16">
-                        <h1 className="text-lg md:text-xl font-black text-blue-600 flex items-center gap-1 md:gap-2">🦁 <span className="hidden md:inline">สัตว์โลกหน้ารัก</span></h1>
-                        <div className="flex gap-2 md:gap-4 items-center">
-                            <div className="px-3 md:px-4 py-1 bg-yellow-100 rounded-full text-yellow-800 font-bold border-2 border-yellow-400 flex items-center text-sm md:text-base">⭐ {completedCount} / 16</div>
-                            <div className="flex gap-1 bg-gray-100 p-1 rounded-full border border-gray-300">
-                                <button onClick={toggleMusic} className={`p-2 rounded-full transition-colors ${musicEnabled ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-400'}`}>{musicEnabled ? <IconMusic2 size={20}/> : <IconMusic size={20}/>}</button>
-                                <div className="w-px bg-gray-300 my-1"></div>
-                                <button onClick={() => setSfxEnabled(!sfxEnabled)} className={`p-2 rounded-full transition-colors ${sfxEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}>{sfxEnabled ? <IconVolume2 size={20}/> : <IconVolumeX size={20}/>}</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Main Content: Flex Column */}
-                    <div className="flex-1 flex flex-col overflow-hidden relative">
-                        
-                        {/* Feedback Overlay */}
-                        {feedback && (
-                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] pointer-events-none w-full text-center">
-                                <div className={`inline-block px-8 py-4 rounded-3xl shadow-2xl text-2xl md:text-3xl font-black animate-bounce-in border-4 mx-4 ${feedback.type === 'correct' ? 'bg-green-100 text-green-600 border-green-500' : 'bg-red-100 text-red-600 border-red-500'}`}>
-                                    {feedback.type === 'correct' ? '✨ ' : '❌ '} {feedback.msg}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Top: Baskets (Fixed/Shrinkable area but maintained visibility) */}
-                        <div className="shrink-0 bg-transparent p-2 z-10 w-full max-w-6xl mx-auto">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                {CATEGORIES.map((cat) => (
-                                    <div key={cat.id} ref={el => basketsRef.current[cat.id] = el} className={`relative flex flex-col items-center justify-start h-32 md:h-48 rounded-2xl border-2 md:border-4 shadow-xl backdrop-blur-sm transition-all overflow-hidden ${cat.color} ${cat.borderColor}`}>
-                                        <div className={`w-full text-center py-1 bg-white/40 font-black ${cat.textColor} text-sm md:text-xl truncate px-1`}>
-                                            <span className="text-lg md:text-2xl mr-1">{cat.icon}</span>{cat.name}
-                                        </div>
-                                        {/* Animals inside basket */}
-                                        <div className="flex-1 w-full p-1 flex flex-wrap content-start justify-center gap-1 overflow-y-auto custom-scrollbar">
-                                            {animals.filter(a => a.category === cat.id && a.completed).map((animal) => (
-                                                <img key={animal.id} src={animal.src} alt={animal.name} className="w-8 h-8 md:w-12 md:h-12 object-contain animate-pop-in filter drop-shadow-sm" />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Bottom: Animals Source (Takes remaining space, Scrollable) */}
-                        <div className="flex-1 bg-white/90 backdrop-blur-sm border-t-4 border-blue-200 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col w-full max-w-6xl mx-auto">
-                            <div className="shrink-0 py-2 text-center relative z-10 bg-white/50">
-                                <span className="inline-block bg-blue-500 px-6 py-1 rounded-full border-4 border-white text-white font-bold text-sm md:text-lg shadow-lg">
-                                    ลากสัตว์ด้านล่างไปใส่ตะกร้า
-                                </span>
-                            </div>
-                            
-                            {/* Scrollable Animal Grid */}
-                            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-20">
-                                <div className="grid grid-cols-4 md:grid-cols-8 gap-3 md:gap-6 justify-items-center content-start">
-                                    {remainingAnimals.map((animal) => (
-                                        <div key={animal.id} 
-                                             onPointerDown={(e) => handlePointerDown(e, animal)} 
-                                             onPointerEnter={() => speakName(animal.name)} 
-                                             className="cursor-grab active:cursor-grabbing w-16 h-16 md:w-24 md:h-24 p-1 md:p-2 rounded-full bg-white shadow-lg border-2 md:border-4 border-white ring-2 ring-blue-100 hover:scale-110 hover:shadow-2xl hover:ring-blue-400 hover:rotate-6 transition-all touch-none flex items-center justify-center group select-none relative z-10">
-                                            <img src={animal.src} alt={animal.name} className="w-full h-full object-contain pointer-events-none select-none" />
-                                        </div>
-                                    ))}
-                                    {remainingAnimals.length === 0 && (
-                                        <div className="col-span-full text-gray-400 flex flex-col items-center animate-pulse font-black mt-8">
-                                            <IconSparkles size={48} className="text-yellow-400 md:w-16 md:h-16" />
-                                            <span className="mt-2 text-xl md:text-2xl text-blue-400">สุดยอดไปเลย!</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {/* Dragged Item Proxy (High Z-Index) */}
-                    {draggedItem && (
-                        <div className="fixed pointer-events-none z-[100] w-20 h-20 md:w-32 md:h-32 drop-shadow-2xl" 
-                             style={{ 
-                                 left: dragPosition.x, 
-                                 top: dragPosition.y, 
-                                 transform: `translate(-${draggedItem.offsetX}px, -${draggedItem.offsetY}px) scale(1.2) rotate(-5deg)` 
-                             }}>
-                            <img src={draggedItem.src} alt={draggedItem.name} className="w-full h-full object-contain animate-bounce-slow" />
-                        </div>
-                    )}
-                </div>
-            );
+            score = 0;
+            completed = 0;
+            document.getElementById('score').innerText = score;
+            document.getElementById('victory-modal').classList.add('hidden');
+            document.querySelectorAll('.basket-content').forEach(b => b.innerHTML = '');
+            if(isSoundOn && completed === 0) speak("เริ่มเกมกันเลย");
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<CuteAnimalsGame />);
+        function resetGame() {
+            initGame();
+            if(isSoundOn) speak("เริ่มใหม่");
+        }
+
+        // --- Drag & Drop System (Mobile Optimized) ---
+        function makeDraggable(element) {
+            let startX, startY, initialLeft, initialTop;
+            let currentX, currentY;
+            let isDragging = false;
+            let originalParent = element.parentElement;
+            let originalNextSibling = element.nextElementSibling;
+
+            function onStart(e) {
+                // Prevent Default ONLY for touch to stop scrolling
+                if(e.type === 'touchstart') e.preventDefault();
+                
+                const touch = e.type === 'touchstart' ? e.touches[0] : e;
+                startX = touch.clientX;
+                startY = touch.clientY;
+
+                const rect = element.getBoundingClientRect();
+                
+                // คำนวณ offset จากมุมซ้ายบนของ element เทียบกับจุดที่นิ้วกด
+                initialLeft = startX - rect.left;
+                initialTop = startY - rect.top;
+
+                isDragging = true;
+                sounds.pop();
+                speak(element.dataset.name);
+
+                // Setup Fixed Position for smooth dragging
+                element.style.position = 'fixed';
+                element.style.width = rect.width + 'px';
+                element.style.height = rect.height + 'px';
+                element.style.left = rect.left + 'px';
+                element.style.top = rect.top + 'px';
+                element.style.zIndex = 2000;
+                
+                // Add class for visual feedback
+                element.classList.add('scale-110', 'shadow-2xl');
+            }
+
+            function onMove(e) {
+                if (!isDragging) return;
+                
+                // Prevent scroll on mobile while dragging
+                if(e.type === 'touchmove') e.preventDefault();
+
+                const touch = e.type === 'touchmove' ? e.touches[0] : e;
+                
+                // Move element directly to follow finger/cursor
+                currentX = touch.clientX - initialLeft;
+                currentY = touch.clientY - initialTop;
+
+                element.style.left = currentX + "px";
+                element.style.top = currentY + "px";
+
+                checkHover(touch.clientX, touch.clientY);
+            }
+
+            function onEnd(e) {
+                if (!isDragging) return;
+                isDragging = false;
+
+                const touch = e.type === 'touchend' ? e.changedTouches[0] : e;
+                const dropSuccess = checkDrop(element, touch.clientX, touch.clientY);
+
+                if (!dropSuccess) {
+                    returnToStart(element);
+                }
+                
+                document.querySelectorAll('.basket').forEach(b => b.classList.remove('hovered'));
+                element.classList.remove('scale-110', 'shadow-2xl');
+            }
+
+            element.addEventListener('mousedown', onStart);
+            element.addEventListener('touchstart', onStart, { passive: false });
+            
+            window.addEventListener('mousemove', onMove, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            
+            window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchend', onEnd);
+        }
+
+        function checkHover(x, y) {
+            document.querySelectorAll('.basket').forEach(b => b.classList.remove('hovered'));
+            // Hide element momentarily to check what's underneath
+            const el = document.querySelector('.draggable-item:active') || document.querySelector('.draggable-item[style*="z-index: 2000"]');
+            if(el) el.style.visibility = 'hidden';
+            
+            const target = document.elementFromPoint(x, y);
+            
+            if(el) el.style.visibility = 'visible';
+
+            const basket = target?.closest('.basket');
+            if (basket) basket.classList.add('hovered');
+        }
+
+        function checkDrop(element, x, y) {
+            element.style.visibility = 'hidden';
+            const target = document.elementFromPoint(x, y);
+            element.style.visibility = 'visible';
+
+            const basket = target?.closest('.basket');
+
+            if (basket && basket.dataset.category === element.dataset.category) {
+                // Success
+                sounds.correct();
+                
+                // Create Mini Version
+                const mini = document.createElement('img');
+                mini.src = element.querySelector('img').src;
+                mini.className = "w-6 h-6 md:w-8 md:h-8 object-contain bg-white rounded-full border border-gray-200 shadow-sm pop-in";
+                
+                basket.querySelector('.basket-content').appendChild(mini);
+                
+                // Particles
+                createConfetti(x, y);
+                
+                // Remove Original
+                element.remove();
+                
+                score++;
+                completed++;
+                document.getElementById('score').innerText = score;
+                
+                if(completed === animalData.length) {
+                    setTimeout(() => {
+                        sounds.win();
+                        speak("เก่งมาก ชนะแล้ว");
+                        document.getElementById('victory-modal').classList.remove('hidden');
+                        fireworks();
+                    }, 500);
+                } else {
+                    setTimeout(() => speak("เก่งมาก"), 300);
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        function returnToStart(element) {
+            sounds.wrong();
+            element.classList.add('shake');
+            
+            // Revert style to static layout
+            element.style.transition = 'all 0.3s ease';
+            element.style.position = '';
+            element.style.left = '';
+            element.style.top = '';
+            element.style.width = '';
+            element.style.height = '';
+            element.style.zIndex = '';
+            
+            setTimeout(() => {
+                element.style.transition = '';
+                element.classList.remove('shake');
+            }, 300);
+        }
+
+        // --- Visual Effects ---
+        function createConfetti(x, y) {
+            const colors = ['#FFEB3B', '#FF5722', '#4CAF50', '#2196F3', '#E91E63'];
+            for (let i = 0; i < 12; i++) {
+                const conf = document.createElement('div');
+                conf.style.position = 'fixed';
+                conf.style.left = x + 'px';
+                conf.style.top = y + 'px';
+                conf.style.width = '8px';
+                conf.style.height = '8px';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.borderRadius = '50%';
+                conf.style.pointerEvents = 'none';
+                conf.style.zIndex = 3000;
+                
+                const angle = Math.random() * Math.PI * 2;
+                const vel = 50 + Math.random() * 100;
+                const tx = Math.cos(angle) * vel;
+                const ty = Math.sin(angle) * vel;
+
+                conf.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+                ], { duration: 600, easing: 'ease-out' }).onfinish = () => conf.remove();
+
+                document.body.appendChild(conf);
+            }
+        }
+
+        function fireworks() {
+            const interval = setInterval(() => {
+                createConfetti(
+                    Math.random() * window.innerWidth, 
+                    window.innerHeight * 0.3 + Math.random() * window.innerHeight * 0.4
+                );
+            }, 100);
+            setTimeout(() => clearInterval(interval), 3000);
+        }
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--app-height', `${vh * 100}px`);
+        });
+
     </script>
 </body>
 </html>
