@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>เกมสัตว์โลกน่ารัก V2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Base Settings */
+        :root {
+            --app-height: 100dvh;
+        }
+
+        body {
+            font-family: 'Mali', cursive;
+            touch-action: none; /* ป้องกันการ zoom/scroll ในระดับ global */
+            background-color: #87CEEB;
+            background-image: 
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath fill='%23FFFFFF' opacity='0.3' d='M20 80c-6.6 0-12-5.4-12-12s5.4-12 12-12h60c6.6 0 12 5.4 12 12s-5.4 12-12 12H20zM35 70c-4.4 0-8-3.6-8-8s3.6-8 8-8h40c4.4 0 8 3.6 8 8s-3.6 8-8 8H35zM10 60c-2.2 0-4-1.8-4-4s1.8-4 4-4h20c2.2 0 4 1.8 4 4s-1.8 4-4 4H10z'/%3E%3C/svg%3E"),
+                linear-gradient(to bottom, #87CEEB, #B0E0E6);
+            background-repeat: repeat-x, no-repeat;
+            background-position: 0 0, 0 0;
+            overflow: hidden; /* ห้าม scroll หน้าจอหลัก */
+            height: var(--app-height);
+            width: 100vw;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* UI Styles */
+        header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            color: #FF8C00;
+            text-shadow: 2px 2px 0px #FFF, 3px 3px 0px rgba(0,0,0,0.1);
+        }
+
+        /* Draggable Items */
+        .draggable-item {
+            cursor: grab;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+            will-change: transform, left, top;
+        }
+
+        .draggable-item:active {
+            cursor: grabbing;
+            transform: scale(1.15) rotate(3deg);
+            z-index: 9999 !important;
+            box-shadow: 0 15px 25px rgba(0,0,0,0.15);
+        }
+
+        /* Baskets */
+        .basket {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 1.5rem;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(4px);
+            border: 3px solid transparent;
+        }
+
+        .basket.hovered {
+            transform: scale(1.05) translateY(-5px);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: currentColor; /* ใช้สีตัวหนังสือเป็นสีขอบ */
+        }
+
+        /* Basket Colors */
+        .basket[data-category="water"] { color: #0288D1; background-color: rgba(225, 245, 254, 0.8); }
+        .basket[data-category="land"] { color: #388E3C; background-color: rgba(232, 245, 233, 0.8); }
+        .basket[data-category="reptile"] { color: #E65100; background-color: rgba(255, 243, 224, 0.8); }
+        .basket[data-category="wing"] { color: #C2185B; background-color: rgba(252, 228, 236, 0.8); }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px) rotate(-5deg); }
+            75% { transform: translateX(8px) rotate(5deg); }
+        }
+        .shake { animation: shake 0.4s ease-in-out; border: 3px solid #FF5252 !important; }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pop-in { animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+        /* Responsive Text */
+        @media (max-width: 380px) {
+            h1 { font-size: 1.5rem !important; }
+            #score-container span { font-size: 0.9rem !important; }
+            .basket h2 { font-size: 0.9rem !important; }
+            .basket-icon { font-size: 1.5rem !important; }
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center px-3 py-2 z-20 shrink-0 h-[60px] md:h-[80px]">
+        <h1 class="flex items-center gap-2 text-2xl md:text-4xl font-bold truncate">
+            <span class="text-3xl md:text-5xl drop-shadow-md">🦁</span> 
+            <span class="hidden xs:inline">เกมสัตว์น่ารัก</span>
+            <span class="xs:hidden">เกมสัตว์</span>
+        </h1>
+        <div class="flex items-center gap-2">
+            <button id="sound-btn" onclick="toggleSound()" class="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition active:scale-95" title="เสียง">
+                🔊
+            </button>
+            <div id="score-container" class="bg-yellow-300 border-2 border-yellow-500 px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                <span class="text-yellow-900 font-bold text-lg" id="score">0</span>
+                <span class="text-yellow-700 text-sm">/ 16</span>
+            </div>
+            <button onclick="resetGame()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm transition active:scale-95 whitespace-nowrap">
+                เริ่มใหม่ 🔄
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Area -->
+    <main class="flex-grow flex flex-col relative w-full max-w-7xl mx-auto h-[calc(100dvh-60px)] md:h-[calc(100dvh-80px)]">
+        
+        <!-- Animal Spawning Area (Top) - พื้นที่สำหรับสัตว์ที่จะให้ลาก -->
+        <div id="animal-container" class="h-[45%] md:h-[50%] w-full overflow-y-auto overflow-x-hidden flex flex-wrap content-start justify-center gap-2 p-2 pb-8 touch-pan-y">
+            <!-- Animals injected by JS -->
+        </div>
+
+        <!-- Baskets Area (Bottom) - พื้นที่วางตะกร้า -->
+        <div id="basket-container" class="h-[55%] md:h-[50%] w-full p-2 pb-4 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 items-stretch content-stretch">
+            
+            <div class="basket flex flex-col items-center pt-2 relative overflow-hidden" data-category="water">
+                <div class="basket-icon text-3xl md:text-4xl animate-bounce" style="animation-duration: 3s">🌊</div>
+                <h2 class="font-bold text-base md:text-xl">สัตว์น้ำ</h2>
+                <div class="basket-content w-full flex-grow flex flex-wrap justify-center content-start p-1 gap-1 overflow-hidden"></div>
+            </div>
+
+            <div class="basket flex flex-col items-center pt-2 relative overflow-hidden" data-category="land">
+                <div class="basket-icon text-3xl md:text-4xl animate-bounce" style="animation-duration: 3.5s">🌳</div>
+                <h2 class="font-bold text-base md:text-xl">สัตว์บก</h2>
+                <div class="basket-content w-full flex-grow flex flex-wrap justify-center content-start p-1 gap-1 overflow-hidden"></div>
+            </div>
+
+            <div class="basket flex flex-col items-center pt-2 relative overflow-hidden" data-category="reptile">
+                <div class="basket-icon text-3xl md:text-4xl animate-bounce" style="animation-duration: 4s">🦎</div>
+                <h2 class="font-bold text-base md:text-xl">เลื้อยคลาน</h2>
+                <div class="basket-content w-full flex-grow flex flex-wrap justify-center content-start p-1 gap-1 overflow-hidden"></div>
+            </div>
+
+            <div class="basket flex flex-col items-center pt-2 relative overflow-hidden" data-category="wing">
+                <div class="basket-icon text-3xl md:text-4xl animate-bounce" style="animation-duration: 4.5s">🕊️</div>
+                <h2 class="font-bold text-base md:text-xl">สัตว์ปีก</h2>
+                <div class="basket-content w-full flex-grow flex flex-wrap justify-center content-start p-1 gap-1 overflow-hidden"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Victory Modal -->
+    <div id="victory-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white p-6 md:p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full border-8 border-yellow-400 transform transition-all scale-100 animate-[popIn_0.5s]">
+            <div class="text-6xl mb-4 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-bold mb-2 text-orange-600">สุดยอดไปเลย!</h2>
+            <p class="text-gray-600 mb-6 text-lg">หนูแยกประเภทสัตว์ได้ถูกต้องทั้งหมด</p>
+            <button onclick="resetGame()" class="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-xl font-bold py-3 px-6 rounded-2xl shadow-lg transform active:scale-95 transition-all">
+                เล่นอีกครั้ง 🎮
+            </button>
+        </div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="fixed inset-0 bg-sky-200/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-8 rounded-3xl max-w-md w-full text-center shadow-xl border-4 border-sky-400">
+            <h2 class="text-3xl font-bold mb-4 text-sky-700">สวนสัตว์หรรษา</h2>
+            <p class="mb-6 text-lg text-gray-600">ลากรูปสัตว์ไปใส่ในตะกร้าให้ถูกต้อง<br>เพื่อช่วยพี่สิงโตจัดระเบียบสวนสัตว์</p>
+            <button onclick="startGame()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 px-10 rounded-full text-xl shadow-lg animate-pulse transition-transform active:scale-95">
+                เริ่มเกมเลย! ▶️
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // --- Game Data ---
+        const animalData = [
+            { name: "ปู", category: "water", src: "https://img2.pic.in.th/pic/5d7beae4ee6af6747.png" },
+            { name: "หอย", category: "water", src: "https://img5.pic.in.th/file/secure-sv1/3bc573c9bb833512a.png" },
+            { name: "ปลา", category: "water", src: "https://img2.pic.in.th/pic/2215b8e7aff998e18.png" },
+            { name: "กุ้ง", category: "water", src: "https://img2.pic.in.th/pic/40aafd240477916f7.png" },
+            { name: "ช้าง", category: "land", src: "https://img5.pic.in.th/file/secure-sv1/121c740a3a6afb93f1.png" },
+            { name: "กระต่าย", category: "land", src: "https://img5.pic.in.th/file/secure-sv1/13215b8ff2c0dbceba.png" },
+            { name: "แมว", category: "land", src: "https://img2.pic.in.th/pic/143c965a970965c27c.png" },
+            { name: "สุนัข", category: "land", src: "https://img5.pic.in.th/file/secure-sv1/15788d8bd3ba727e5b.png" },
+            { name: "งู", category: "reptile", src: "https://img2.pic.in.th/pic/snapedit_1764731201634-Photoroom.png" },
+            { name: "เต่า", category: "reptile", src: "https://img2.pic.in.th/pic/snapedit_1764731213063-Photoroom.png" },
+            { name: "จระเข้", category: "reptile", src: "https://img5.pic.in.th/file/secure-sv1/BeautyPlus-Image-Enhancer-1764731271403-Photoroom.png" },
+            { name: "กิ้งก่า", category: "reptile", src: "https://img2.pic.in.th/pic/BeautyPlus-Image-Enhancer-1764731288459-Photoroom.png" },
+            { name: "ไก่", category: "wing", src: "https://img5.pic.in.th/file/secure-sv1/upscalemedia-transformed-2ead81fa8123cba6e.png" },
+            { name: "นก", category: "wing", src: "https://img2.pic.in.th/pic/upscalemedia-transformed-18f37512dcb643091.png" },
+            { name: "เป็ด", category: "wing", src: "https://img5.pic.in.th/file/secure-sv1/upscalemedia-transformed-36d0d1bc7b6103014.png" },
+            { name: "ผีเสื้อ", category: "wing", src: "https://img2.pic.in.th/pic/upscalemedia-transformed-4.png" }
+        ];
+
+        // --- State ---
+        let score = 0;
+        let completed = 0;
+        let isSoundOn = true;
+        let audioCtx;
+
+        // --- Audio System ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (!isSoundOn || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        const sounds = {
+            pop: () => playTone(600, 'sine', 0.1, 0.1),
+            correct: () => {
+                if (!isSoundOn) return;
+                playTone(523.25, 'sine', 0.1, 0.1); // C5
+                setTimeout(() => playTone(659.25, 'sine', 0.2, 0.1), 100); // E5
+            },
+            wrong: () => {
+                if (!isSoundOn) return;
+                playTone(150, 'sawtooth', 0.3, 0.1);
+                setTimeout(() => playTone(100, 'sawtooth', 0.3, 0.1), 150);
+            },
+            win: () => {
+                if (!isSoundOn) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((f, i) => setTimeout(() => playTone(f, 'square', 0.2, 0.05), i * 150));
+            }
+        };
+
+        function speak(text) {
+            if (!isSoundOn || !window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'th-TH';
+            utterance.rate = 1;
+            utterance.pitch = 1.1;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleSound() {
+            isSoundOn = !isSoundOn;
+            document.getElementById('sound-btn').innerText = isSoundOn ? "🔊" : "🔇";
+            if(isSoundOn) initAudio();
+        }
+
+        // --- Game Logic ---
+        function startGame() {
+            document.getElementById('start-overlay').classList.add('hidden');
+            initAudio();
+            initGame();
+        }
+
+        function initGame() {
+            const container = document.getElementById('animal-container');
+            container.innerHTML = '';
+            
+            // Randomize and Create Elements
+            const shuffled = [...animalData].sort(() => Math.random() - 0.5);
+
+            shuffled.forEach(animal => {
+                const el = document.createElement('div');
+                el.className = 'draggable-item w-[22vw] h-[25vw] max-w-[100px] max-h-[120px] md:w-28 md:h-32 flex flex-col items-center justify-center p-1 md:p-2';
+                el.innerHTML = `
+                    <div class="flex-grow w-full flex items-center justify-center overflow-hidden mb-1">
+                        <img src="${animal.src}" class="max-h-full max-w-full object-contain pointer-events-none" alt="${animal.name}" onerror="this.style.display='none';this.parentElement.innerHTML='❓'">
+                    </div>
+                    <span class="text-xs md:text-sm font-bold text-gray-600 pointer-events-none">${animal.name}</span>
+                `;
+                el.dataset.category = animal.category;
+                el.dataset.name = animal.name;
+                
+                makeDraggable(el);
+                container.appendChild(el);
+            });
+
+            score = 0;
+            completed = 0;
+            document.getElementById('score').innerText = score;
+            document.getElementById('victory-modal').classList.add('hidden');
+            document.querySelectorAll('.basket-content').forEach(b => b.innerHTML = '');
+            if(isSoundOn && completed === 0) speak("เริ่มเกมกันเลย");
+        }
+
+        function resetGame() {
+            initGame();
+            if(isSoundOn) speak("เริ่มใหม่");
+        }
+
+        // --- Drag & Drop System (Mobile Optimized) ---
+        function makeDraggable(element) {
+            let startX, startY, initialLeft, initialTop;
+            let currentX, currentY;
+            let isDragging = false;
+            let originalParent = element.parentElement;
+            let originalNextSibling = element.nextElementSibling;
+
+            function onStart(e) {
+                // Prevent Default ONLY for touch to stop scrolling
+                if(e.type === 'touchstart') e.preventDefault();
+                
+                const touch = e.type === 'touchstart' ? e.touches[0] : e;
+                startX = touch.clientX;
+                startY = touch.clientY;
+
+                const rect = element.getBoundingClientRect();
+                
+                // คำนวณ offset จากมุมซ้ายบนของ element เทียบกับจุดที่นิ้วกด
+                initialLeft = startX - rect.left;
+                initialTop = startY - rect.top;
+
+                isDragging = true;
+                sounds.pop();
+                speak(element.dataset.name);
+
+                // Setup Fixed Position for smooth dragging
+                element.style.position = 'fixed';
+                element.style.width = rect.width + 'px';
+                element.style.height = rect.height + 'px';
+                element.style.left = rect.left + 'px';
+                element.style.top = rect.top + 'px';
+                element.style.zIndex = 2000;
+                
+                // Add class for visual feedback
+                element.classList.add('scale-110', 'shadow-2xl');
+            }
+
+            function onMove(e) {
+                if (!isDragging) return;
+                
+                // Prevent scroll on mobile while dragging
+                if(e.type === 'touchmove') e.preventDefault();
+
+                const touch = e.type === 'touchmove' ? e.touches[0] : e;
+                
+                // Move element directly to follow finger/cursor
+                currentX = touch.clientX - initialLeft;
+                currentY = touch.clientY - initialTop;
+
+                element.style.left = currentX + "px";
+                element.style.top = currentY + "px";
+
+                checkHover(touch.clientX, touch.clientY);
+            }
+
+            function onEnd(e) {
+                if (!isDragging) return;
+                isDragging = false;
+
+                const touch = e.type === 'touchend' ? e.changedTouches[0] : e;
+                const dropSuccess = checkDrop(element, touch.clientX, touch.clientY);
+
+                if (!dropSuccess) {
+                    returnToStart(element);
+                }
+                
+                document.querySelectorAll('.basket').forEach(b => b.classList.remove('hovered'));
+                element.classList.remove('scale-110', 'shadow-2xl');
+            }
+
+            element.addEventListener('mousedown', onStart);
+            element.addEventListener('touchstart', onStart, { passive: false });
+            
+            window.addEventListener('mousemove', onMove, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            
+            window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchend', onEnd);
+        }
+
+        function checkHover(x, y) {
+            document.querySelectorAll('.basket').forEach(b => b.classList.remove('hovered'));
+            // Hide element momentarily to check what's underneath
+            const el = document.querySelector('.draggable-item:active') || document.querySelector('.draggable-item[style*="z-index: 2000"]');
+            if(el) el.style.visibility = 'hidden';
+            
+            const target = document.elementFromPoint(x, y);
+            
+            if(el) el.style.visibility = 'visible';
+
+            const basket = target?.closest('.basket');
+            if (basket) basket.classList.add('hovered');
+        }
+
+        function checkDrop(element, x, y) {
+            element.style.visibility = 'hidden';
+            const target = document.elementFromPoint(x, y);
+            element.style.visibility = 'visible';
+
+            const basket = target?.closest('.basket');
+
+            if (basket && basket.dataset.category === element.dataset.category) {
+                // Success
+                sounds.correct();
+                
+                // Create Mini Version
+                const mini = document.createElement('img');
+                mini.src = element.querySelector('img').src;
+                mini.className = "w-6 h-6 md:w-8 md:h-8 object-contain bg-white rounded-full border border-gray-200 shadow-sm pop-in";
+                
+                basket.querySelector('.basket-content').appendChild(mini);
+                
+                // Particles
+                createConfetti(x, y);
+                
+                // Remove Original
+                element.remove();
+                
+                score++;
+                completed++;
+                document.getElementById('score').innerText = score;
+                
+                if(completed === animalData.length) {
+                    setTimeout(() => {
+                        sounds.win();
+                        speak("เก่งมาก ชนะแล้ว");
+                        document.getElementById('victory-modal').classList.remove('hidden');
+                        fireworks();
+                    }, 500);
+                } else {
+                    setTimeout(() => speak("เก่งมาก"), 300);
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        function returnToStart(element) {
+            sounds.wrong();
+            element.classList.add('shake');
+            
+            // Revert style to static layout
+            element.style.transition = 'all 0.3s ease';
+            element.style.position = '';
+            element.style.left = '';
+            element.style.top = '';
+            element.style.width = '';
+            element.style.height = '';
+            element.style.zIndex = '';
+            
+            setTimeout(() => {
+                element.style.transition = '';
+                element.classList.remove('shake');
+            }, 300);
+        }
+
+        // --- Visual Effects ---
+        function createConfetti(x, y) {
+            const colors = ['#FFEB3B', '#FF5722', '#4CAF50', '#2196F3', '#E91E63'];
+            for (let i = 0; i < 12; i++) {
+                const conf = document.createElement('div');
+                conf.style.position = 'fixed';
+                conf.style.left = x + 'px';
+                conf.style.top = y + 'px';
+                conf.style.width = '8px';
+                conf.style.height = '8px';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.borderRadius = '50%';
+                conf.style.pointerEvents = 'none';
+                conf.style.zIndex = 3000;
+                
+                const angle = Math.random() * Math.PI * 2;
+                const vel = 50 + Math.random() * 100;
+                const tx = Math.cos(angle) * vel;
+                const ty = Math.sin(angle) * vel;
+
+                conf.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+                ], { duration: 600, easing: 'ease-out' }).onfinish = () => conf.remove();
+
+                document.body.appendChild(conf);
+            }
+        }
+
+        function fireworks() {
+            const interval = setInterval(() => {
+                createConfetti(
+                    Math.random() * window.innerWidth, 
+                    window.innerHeight * 0.3 + Math.random() * window.innerHeight * 0.4
+                );
+            }, 100);
+            setTimeout(() => clearInterval(interval), 3000);
+        }
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--app-height', `${vh * 100}px`);
+        });
+
+    </script>
+</body>
+</html>
