@@ -29,6 +29,7 @@
             touch-action: none; /* สำคัญมากสำหรับเกมลากวางบนมือถือ */
             -webkit-user-select: none; /* ป้องกันการเลือกข้อความ */
             user-select: none;
+            -webkit-touch-callout: none; /* ป้องกันเมนูคลิกขวาบน iOS */
         }
         
         #root {
@@ -246,8 +247,12 @@
             const handlePointerDown = (e, animal) => {
                 if (animal.completed) return;
                 speakName(animal.name);
+                
+                // สำคัญ: ป้องกันการเกิด Event ซ้อน และสั่งให้ Browser จับ Pointer ไว้ที่ Element นี้เท่านั้น
+                // ทำให้ลากออกนอกพื้นที่ก็ยังถือว่าลาก Element นี้อยู่
                 e.preventDefault();
                 e.stopPropagation();
+                e.currentTarget.setPointerCapture(e.pointerId);
                 
                 const rect = e.currentTarget.getBoundingClientRect();
                 const isTouch = e.pointerType === 'touch';
@@ -375,7 +380,7 @@
 
             return (
                 <div className="w-full h-full bg-gradient-to-b from-sky-50 to-blue-100 flex flex-col overflow-hidden touch-none select-none font-sarabun fixed inset-0"
-                    onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}>
+                    onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={(e) => e.preventDefault()}>
                     
                     {/* Header */}
                     <div className="bg-white/90 backdrop-blur-sm p-2 shadow-md flex justify-between items-center z-20 shrink-0">
