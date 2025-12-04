@@ -19,12 +19,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700;800&display=swap" rel="stylesheet">
 
     <style>
-        body {
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* ป้องกันการเลื่อนหน้าจอ */
             font-family: 'Sarabun', sans-serif;
-            overflow: hidden;
-            touch-action: none; /* ป้องกันการเลื่อนหน้าจอของ Browser เพื่อให้ลากวางได้สะดวก */
+            touch-action: none; /* สำคัญมากสำหรับเกมลากวางบนมือถือ */
+            -webkit-user-select: none; /* ป้องกันการเลือกข้อความ */
+            user-select: none;
         }
         
+        #root {
+            width: 100%;
+            height: 100%;
+        }
+
         /* Animations */
         @keyframes bounce-slow { 0%, 100% { transform: translateY(-5%); } 50% { transform: translateY(5%); } }
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -86,22 +97,18 @@
         ];
 
         const ANIMALS_DATA = [
-            // สัตว์น้ำ
             { id: 'w1', name: 'ปู', category: 'water', src: 'https://img2.pic.in.th/pic/5d7beae4ee6af6747.png' },
             { id: 'w2', name: 'หอย', category: 'water', src: 'https://img5.pic.in.th/file/secure-sv1/3bc573c9bb833512a.png' },
             { id: 'w3', name: 'ปลา', category: 'water', src: 'https://img2.pic.in.th/pic/2215b8e7aff998e18.png' },
             { id: 'w4', name: 'กุ้ง', category: 'water', src: 'https://img2.pic.in.th/pic/40aafd240477916f7.png' },
-            // สัตว์บก
             { id: 'l1', name: 'ช้าง', category: 'land', src: 'https://img5.pic.in.th/file/secure-sv1/121c740a3a6afb93f1.png' },
             { id: 'l2', name: 'กระต่าย', category: 'land', src: 'https://img5.pic.in.th/file/secure-sv1/13215b8ff2c0dbceba.png' },
             { id: 'l3', name: 'แมว', category: 'land', src: 'https://img2.pic.in.th/pic/143c965a970965c27c.png' },
             { id: 'l4', name: 'สุนัข', category: 'land', src: 'https://img5.pic.in.th/file/secure-sv1/15788d8bd3ba727e5b.png' },
-            // สัตว์เลื้อยคลาน
             { id: 'r1', name: 'งู', category: 'reptile', src: 'https://img2.pic.in.th/pic/snapedit_1764731201634-Photoroom.png' },
             { id: 'r2', name: 'เต่า', category: 'reptile', src: 'https://img2.pic.in.th/pic/snapedit_1764731213063-Photoroom.png' },
             { id: 'r3', name: 'จระเข้', category: 'reptile', src: 'https://img5.pic.in.th/file/secure-sv1/BeautyPlus-Image-Enhancer-1764731271403-Photoroom.png' },
             { id: 'r4', name: 'กิ้งก่า', category: 'reptile', src: 'https://img2.pic.in.th/pic/BeautyPlus-Image-Enhancer-1764731288459-Photoroom.png' },
-            // สัตว์ปีก
             { id: 'wi1', name: 'ไก่', category: 'winged', src: 'https://img5.pic.in.th/file/secure-sv1/upscalemedia-transformed-2ead81fa8123cba6e.png' },
             { id: 'wi2', name: 'นก', category: 'winged', src: 'https://img2.pic.in.th/pic/upscalemedia-transformed-18f37512dcb643091.png' },
             { id: 'wi3', name: 'เป็ด', category: 'winged', src: 'https://img5.pic.in.th/file/secure-sv1/upscalemedia-transformed-36d0d1bc7b6103014.png' },
@@ -110,7 +117,6 @@
 
         const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
 
-        // --- Music Synth ---
         class MusicSynthesizer {
             constructor() {
                 this.ctx = null;
@@ -192,7 +198,6 @@
             }
         };
 
-        // --- Game Component ---
         function CuteAnimalsGame() {
             const [gameState, setGameState] = useState('start');
             const [animals, setAnimals] = useState([]);
@@ -245,7 +250,26 @@
                 e.stopPropagation();
                 
                 const rect = e.currentTarget.getBoundingClientRect();
-                setDraggedItem({ ...animal, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top });
+                const isTouch = e.pointerType === 'touch';
+                
+                // Adjust offset specifically for touch to show item above finger
+                // For mouse, we keep it relative to click. For touch, we want it a bit higher.
+                let offsetX = e.clientX - rect.left;
+                let offsetY = e.clientY - rect.top;
+
+                if (isTouch) {
+                    // Center horizontal, move up vertical
+                    offsetX = rect.width / 2;
+                    offsetY = rect.height * 1.5; // Lift it up significantly above finger
+                }
+
+                setDraggedItem({ 
+                    ...animal, 
+                    offsetX: offsetX, 
+                    offsetY: offsetY,
+                    isTouch: isTouch
+                });
+                
                 setDragPosition({ x: e.clientX, y: e.clientY });
             };
 
@@ -259,6 +283,10 @@
                 if (!draggedItem) return;
                 e.preventDefault();
                 
+                // For touch, the pointer up happens at the finger location.
+                // But our visual is offset. We need to check drop logic based on finger position or visual position.
+                // Standard logic uses finger position (e.clientX/Y) which is correct for intuitive dropping.
+                
                 const dropX = e.clientX;
                 const dropY = e.clientY;
                 let droppedCategory = null;
@@ -267,6 +295,9 @@
                     const basket = basketsRef.current[key];
                     if (basket) {
                         const rect = basket.getBoundingClientRect();
+                        // For touch, since the item is visually higher, users might aim with the item image.
+                        // But let's stick to pointer location for consistency, or check if pointer is *near* basket.
+                        // Simple collision: is pointer inside basket rect?
                         if (dropX >= rect.left && dropX <= rect.right && dropY >= rect.top && dropY <= rect.bottom) {
                             droppedCategory = key;
                         }
@@ -310,12 +341,12 @@
 
             if (gameState === 'start') {
                 return (
-                    <div className="relative w-full h-screen bg-cover bg-center overflow-hidden flex flex-col items-center justify-center font-sarabun">
+                    <div className="relative w-full h-full bg-cover bg-center overflow-hidden flex flex-col items-center justify-center font-sarabun touch-none">
                         <div className="absolute inset-0 z-0" style={{ backgroundImage: `url('https://img2.pic.in.th/pic/Gemini_Generated_Image_dt996idt996idt99.png')`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'brightness(0.9)' }} />
                         <div className="relative z-10 flex flex-col items-center animate-fade-in text-center p-4">
-                            <img src="https://img2.pic.in.th/pic/Gemini_Generated_Image_r6w4wzr6w4wzr6w4-Photoroom.png" alt="สัตว์โลกหน้ารัก" className="max-w-[90%] w-[500px] mb-8 drop-shadow-2xl animate-bounce-slow" />
-                            <button onClick={startGame} className="group relative bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-black text-3xl md:text-5xl py-6 px-12 rounded-full border-b-8 border-yellow-600 active:border-b-0 active:translate-y-2 transition-all shadow-xl transform hover:scale-105">
-                                <span className="flex items-center gap-3"><span className="animate-spin-slow text-4xl">🌟</span> เริ่มเกม <span className="animate-spin-slow text-4xl">🌟</span></span>
+                            <img src="https://img2.pic.in.th/pic/Gemini_Generated_Image_r6w4wzr6w4wzr6w4-Photoroom.png" alt="สัตว์โลกหน้ารัก" className="max-w-[90%] w-[300px] md:w-[500px] mb-8 drop-shadow-2xl animate-bounce-slow" />
+                            <button onClick={startGame} className="group relative bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-black text-2xl md:text-5xl py-4 px-8 md:py-6 md:px-12 rounded-full border-b-8 border-yellow-600 active:border-b-0 active:translate-y-2 transition-all shadow-xl transform hover:scale-105">
+                                <span className="flex items-center gap-3"><span className="animate-spin-slow text-2xl md:text-4xl">🌟</span> เริ่มเกม <span className="animate-spin-slow text-2xl md:text-4xl">🌟</span></span>
                             </button>
                         </div>
                     </div>
@@ -324,15 +355,15 @@
 
             if (gameState === 'won') {
                 return (
-                    <div className="w-full h-screen bg-gradient-to-b from-blue-300 to-purple-400 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sarabun">
+                    <div className="w-full h-full bg-gradient-to-b from-blue-300 to-purple-400 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sarabun touch-none">
                         {[...Array(20)].map((_, i) => (
                             <div key={i} className="absolute animate-fall" style={{ left: `${Math.random() * 100}%`, top: `-10%`, animationDuration: `${Math.random() * 3 + 2}s`, animationDelay: `${Math.random() * 2}s`, fontSize: `${Math.random() * 20 + 20}px` }}>{['🎉', '⭐', '🎈', '🦁'][Math.floor(Math.random() * 4)]}</div>
                         ))}
                         <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl shadow-2xl text-center max-w-lg w-full z-10 border-4 border-yellow-400">
-                            <div className="flex justify-center mb-4"><IconTrophy size={96} className="text-yellow-500 animate-bounce" /></div>
-                            <h2 className="text-4xl md:text-5xl font-black text-purple-600 mb-4">เก่งมากเลย!</h2>
-                            <div className="flex justify-center mb-6"><span className="text-6xl animate-bounce">🐘</span><span className="text-6xl animate-bounce delay-100">🦋</span><span className="text-6xl animate-bounce delay-200">🐟</span></div>
-                            <button onClick={startGame} className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-400 text-white font-bold text-2xl py-4 rounded-xl shadow-lg border-b-4 border-green-700 active:border-b-0 active:translate-y-1 transition-all">
+                            <div className="flex justify-center mb-4"><IconTrophy size={64} className="text-yellow-500 animate-bounce" /></div>
+                            <h2 className="text-3xl md:text-5xl font-black text-purple-600 mb-4">เก่งมากเลย!</h2>
+                            <div className="flex justify-center mb-6"><span className="text-4xl md:text-6xl animate-bounce">🐘</span><span className="text-4xl md:text-6xl animate-bounce delay-100">🦋</span><span className="text-4xl md:text-6xl animate-bounce delay-200">🐟</span></div>
+                            <button onClick={startGame} className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-400 text-white font-bold text-xl md:text-2xl py-3 md:py-4 rounded-xl shadow-lg border-b-4 border-green-700 active:border-b-0 active:translate-y-1 transition-all">
                                 <IconRotateCcw /> เล่นอีกครั้ง
                             </button>
                         </div>
@@ -343,11 +374,12 @@
             const remainingAnimals = animals.filter(a => !a.completed);
 
             return (
-                <div className="w-full h-screen bg-gradient-to-b from-sky-50 to-blue-100 flex flex-col overflow-hidden touch-none select-none font-sarabun"
+                <div className="w-full h-full bg-gradient-to-b from-sky-50 to-blue-100 flex flex-col overflow-hidden touch-none select-none font-sarabun fixed inset-0"
                     onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}>
                     
-                    <div className="bg-white/90 backdrop-blur-sm p-2 shadow-md flex justify-between items-center z-20">
-                        <h1 className="text-xl font-black text-blue-600 flex items-center gap-2">🦁 สัตว์โลกหน้ารัก</h1>
+                    {/* Header */}
+                    <div className="bg-white/90 backdrop-blur-sm p-2 shadow-md flex justify-between items-center z-20 shrink-0">
+                        <h1 className="text-lg md:text-xl font-black text-blue-600 flex items-center gap-1 md:gap-2">🦁 <span className="hidden md:inline">สัตว์โลกหน้ารัก</span></h1>
                         <div className="flex gap-2 md:gap-4 items-center">
                             <div className="px-3 md:px-4 py-1 bg-yellow-100 rounded-full text-yellow-800 font-bold border-2 border-yellow-400 flex items-center text-sm md:text-base">⭐ {completedCount} / 16</div>
                             <div className="flex gap-1 bg-gray-100 p-1 rounded-full border border-gray-300">
@@ -358,48 +390,64 @@
                         </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col relative max-w-6xl mx-auto w-full h-full">
+                    {/* Game Area */}
+                    <div className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
                         {feedback && (
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none w-full text-center">
-                                <div className={`inline-block px-8 py-4 rounded-3xl shadow-2xl text-3xl font-black animate-bounce-in border-4 mx-4 ${feedback.type === 'correct' ? 'bg-green-100 text-green-600 border-green-500' : 'bg-red-100 text-red-600 border-red-500'}`}>
+                                <div className={`inline-block px-8 py-4 rounded-3xl shadow-2xl text-2xl md:text-3xl font-black animate-bounce-in border-4 mx-4 ${feedback.type === 'correct' ? 'bg-green-100 text-green-600 border-green-500' : 'bg-red-100 text-red-600 border-red-500'}`}>
                                     {feedback.type === 'correct' ? '✨ ' : '❌ '} {feedback.msg}
                                 </div>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 p-2 md:p-4 h-1/2 min-h-[40%] bg-transparent">
+                        {/* Baskets: 2 cols on mobile, 4 cols on md+ */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-2 bg-transparent shrink-0 h-[45%] md:h-[40%]">
                             {CATEGORIES.map((cat) => (
-                                <div key={cat.id} ref={el => basketsRef.current[cat.id] = el} className={`relative flex flex-col items-center justify-start pt-2 rounded-2xl border-4 shadow-xl backdrop-blur-sm transition-all overflow-hidden ${cat.color} ${cat.borderColor}`}>
-                                    <div className={`text-lg md:text-2xl font-black drop-shadow-md mb-2 bg-white/50 px-4 py-1 rounded-full ${cat.textColor} flex items-center gap-2`}><span className="text-2xl">{cat.icon}</span> {cat.name}</div>
-                                    <div className="flex flex-wrap content-start justify-center gap-1 p-2 w-full h-full overflow-hidden">
+                                <div key={cat.id} ref={el => basketsRef.current[cat.id] = el} className={`relative flex flex-col items-center justify-start pt-1 md:pt-2 rounded-2xl border-2 md:border-4 shadow-xl backdrop-blur-sm transition-all overflow-hidden ${cat.color} ${cat.borderColor}`}>
+                                    <div className={`text-sm md:text-2xl font-black drop-shadow-md mb-1 bg-white/50 px-2 md:px-4 py-1 rounded-full ${cat.textColor} flex items-center gap-1`}>
+                                        <span className="text-lg md:text-2xl">{cat.icon}</span> 
+                                        <span className="truncate">{cat.name}</span>
+                                    </div>
+                                    <div className="flex flex-wrap content-start justify-center gap-1 p-1 w-full h-full overflow-hidden overflow-y-auto">
                                         {animals.filter(a => a.category === cat.id && a.completed).map((animal) => (
-                                            <img key={animal.id} src={animal.src} alt={animal.name} className="w-10 h-10 md:w-16 md:h-16 object-contain animate-pop-in filter drop-shadow-sm" />
+                                            <img key={animal.id} src={animal.src} alt={animal.name} className="w-8 h-8 md:w-12 md:h-12 object-contain animate-pop-in filter drop-shadow-sm" />
                                         ))}
                                     </div>
-                                    <div className="absolute bottom-0 w-full h-4 bg-white/10 rounded-b-lg"></div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="flex-1 bg-white/80 backdrop-blur-sm border-t-4 border-blue-200 relative p-4 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-                            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 px-8 py-2 rounded-full border-4 border-white text-white font-bold text-lg shadow-lg animate-pulse">ลากสัตว์ไปใส่ในตะกร้าให้ถูกต้อง</div>
-                            <div className="grid grid-cols-4 md:grid-cols-8 gap-2 md:gap-4 justify-items-center content-center h-full overflow-y-auto pt-6">
+                        {/* Animals Source: 4 cols on mobile, 8 cols on md+ */}
+                        <div className="flex-1 bg-white/80 backdrop-blur-sm border-t-4 border-blue-200 relative p-2 md:p-4 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] overflow-hidden">
+                            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 px-4 md:px-8 py-1 md:py-2 rounded-full border-4 border-white text-white font-bold text-sm md:text-lg shadow-lg animate-pulse whitespace-nowrap">
+                                ลากสัตว์ไปใส่ในตะกร้า
+                            </div>
+                            
+                            <div className="grid grid-cols-4 md:grid-cols-8 gap-2 md:gap-4 justify-items-center content-start h-full overflow-y-auto pt-4 md:pt-6 pb-20">
                                 {remainingAnimals.map((animal) => (
-                                    <div key={animal.id} onPointerDown={(e) => handlePointerDown(e, animal)} onPointerEnter={() => speakName(animal.name)} className="cursor-grab active:cursor-grabbing w-16 h-16 md:w-24 md:h-24 p-2 rounded-full bg-white shadow-lg border-4 border-white ring-2 ring-blue-100 hover:scale-110 hover:shadow-2xl hover:ring-blue-400 hover:rotate-6 transition-all touch-none flex items-center justify-center group">
-                                        <img src={animal.src} alt={animal.name} className="w-full h-full object-contain pointer-events-none group-hover:animate-wiggle" />
+                                    <div key={animal.id} 
+                                         onPointerDown={(e) => handlePointerDown(e, animal)} 
+                                         onPointerEnter={() => speakName(animal.name)} 
+                                         className="cursor-grab active:cursor-grabbing w-14 h-14 md:w-24 md:h-24 p-1 md:p-2 rounded-full bg-white shadow-lg border-2 md:border-4 border-white ring-2 ring-blue-100 hover:scale-110 hover:shadow-2xl hover:ring-blue-400 hover:rotate-6 transition-all touch-none flex items-center justify-center group select-none -webkit-user-select-none">
+                                        <img src={animal.src} alt={animal.name} className="w-full h-full object-contain pointer-events-none group-hover:animate-wiggle select-none -webkit-user-drag-none" />
                                     </div>
                                 ))}
                                 {remainingAnimals.length === 0 && (
                                     <div className="col-span-full text-gray-400 flex flex-col items-center animate-pulse font-black mt-8">
-                                        <IconSparkles size={64} className="text-yellow-400" />
-                                        <span className="mt-4 text-2xl text-blue-400">สุดยอดไปเลย!</span>
+                                        <IconSparkles size={48} className="text-yellow-400 md:w-16 md:h-16" />
+                                        <span className="mt-2 text-xl md:text-2xl text-blue-400">สุดยอดไปเลย!</span>
                                     </div>
                                 )}
                             </div>
                         </div>
 
                         {draggedItem && (
-                            <div className="fixed pointer-events-none z-50 w-24 h-24 md:w-32 md:h-32 drop-shadow-2xl" style={{ left: dragPosition.x, top: dragPosition.y, transform: `translate(-${draggedItem.offsetX}px, -${draggedItem.offsetY}px) scale(1.2) rotate(-5deg)` }}>
+                            <div className="fixed pointer-events-none z-50 w-20 h-20 md:w-32 md:h-32 drop-shadow-2xl" 
+                                 style={{ 
+                                     left: dragPosition.x, 
+                                     top: dragPosition.y, 
+                                     transform: `translate(-${draggedItem.offsetX}px, -${draggedItem.offsetY}px) scale(1.2) rotate(-5deg)` 
+                                 }}>
                                 <img src={draggedItem.src} alt={draggedItem.name} className="w-full h-full object-contain animate-bounce-slow" />
                             </div>
                         )}
