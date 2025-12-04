@@ -24,12 +24,13 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* ป้องกันการเลื่อนหน้าจอ */
+            overflow: hidden; /* ป้องกันการเลื่อนหน้าจอทั้งใบ */
             font-family: 'Sarabun', sans-serif;
-            touch-action: none; /* สำคัญมากสำหรับเกมลากวางบนมือถือ */
-            -webkit-user-select: none; /* ป้องกันการเลือกข้อความ */
+            touch-action: none; /* ป้องกันการย่อขยายและเลื่อนหน้าจอด้วยนิ้ว */
+            -webkit-user-select: none;
             user-select: none;
-            -webkit-touch-callout: none; /* ป้องกันเมนูคลิกขวาบน iOS */
+            -webkit-touch-callout: none;
+            overscroll-behavior: none; /* ป้องกันเอฟเฟกต์เด้งดึ๋งเวลาเลื่อนสุดขอบ */
         }
         
         #root {
@@ -51,6 +52,19 @@
         .animate-wiggle { animation: wiggle 0.4s ease-in-out infinite; }
         .animate-fall { animation: fall linear forwards; }
         .animate-bounce-in { animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+
+        /* Custom Scrollbar for animal list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -118,6 +132,7 @@
 
         const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
 
+        // --- Audio Logic ---
         class MusicSynthesizer {
             constructor() {
                 this.ctx = null;
@@ -127,31 +142,20 @@
                 this.sequence = 0;
                 this.timeoutId = null;
             }
-
-            init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-            }
-
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
             playNote(freq, duration, time) {
                 if (!this.ctx) return;
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
-                
                 osc.type = this.oscillatorType;
                 osc.frequency.setValueAtTime(freq, time);
-                
                 gain.gain.setValueAtTime(0.05, time);
                 gain.gain.exponentialRampToValueAtTime(0.001, time + duration - 0.05);
-
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-                
                 osc.start(time);
                 osc.stop(time + duration);
             }
-
             start() {
                 this.init();
                 if (this.isPlaying || !this.ctx) return;
@@ -159,46 +163,22 @@
                 this.isPlaying = true;
                 this.scheduleNextNote();
             }
-
-            stop() {
-                this.isPlaying = false;
-                clearTimeout(this.timeoutId);
-            }
-
+            stop() { this.isPlaying = false; clearTimeout(this.timeoutId); }
             scheduleNextNote() {
                 if (!this.isPlaying || !this.ctx) return;
-
                 const time = this.ctx.currentTime;
-                const melody = [
-                    523.25, 0, 659.25, 0, 783.99, 0, 1046.50,
-                    783.99, 0, 659.25, 0, 523.25, 0, 0,
-                    587.33, 0, 587.33, 0, 698.46, 0, 880.00,
-                    783.99, 0, 659.25, 0, 523.25, 0, 0
-                ];
-
+                const melody = [523.25, 0, 659.25, 0, 783.99, 0, 1046.50, 783.99, 0, 659.25, 0, 523.25, 0, 0, 587.33, 0, 587.33, 0, 698.46, 0, 880.00, 783.99, 0, 659.25, 0, 523.25, 0, 0];
                 const freq = melody[this.sequence % melody.length];
-                
-                if (freq > 0) {
-                    this.playNote(freq, 0.2, time);
-                }
-
+                if (freq > 0) this.playNote(freq, 0.2, time);
                 this.sequence++;
                 this.timeoutId = setTimeout(() => this.scheduleNextNote(), (60 / this.tempo) * 1000);
             }
         }
 
         const bgmSynth = new MusicSynthesizer();
+        const playSFX = (type) => { try { const audio = new Audio(SOUNDS[type]); audio.volume = 0.6; audio.play().catch(() => {}); } catch (e) {} };
 
-        const playSFX = (type) => {
-            try {
-                const audio = new Audio(SOUNDS[type]);
-                audio.volume = 0.6;
-                audio.play().catch(e => console.log("SFX Blocked", e));
-            } catch (e) {
-                console.error("Audio Error", e);
-            }
-        };
-
+        // --- Game Component ---
         function CuteAnimalsGame() {
             const [gameState, setGameState] = useState('start');
             const [animals, setAnimals] = useState([]);
@@ -206,23 +186,17 @@
             const [feedback, setFeedback] = useState(null);
             const [draggedItem, setDraggedItem] = useState(null);
             const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
-            
             const [sfxEnabled, setSfxEnabled] = useState(true);
             const [musicEnabled, setMusicEnabled] = useState(false);
-
             const basketsRef = useRef({});
 
             useEffect(() => {
-                if (musicEnabled && gameState === 'playing') {
-                    bgmSynth.start();
-                } else {
-                    bgmSynth.stop();
-                }
+                if (musicEnabled && gameState === 'playing') bgmSynth.start();
+                else bgmSynth.stop();
                 return () => bgmSynth.stop();
             }, [musicEnabled, gameState]);
 
             const toggleMusic = () => setMusicEnabled(!musicEnabled);
-
             const speakName = useCallback((text) => {
                 if (!sfxEnabled) return;
                 window.speechSynthesis.cancel();
@@ -247,34 +221,22 @@
             const handlePointerDown = (e, animal) => {
                 if (animal.completed) return;
                 speakName(animal.name);
-                
-                // สำคัญ: ป้องกันการเกิด Event ซ้อน และสั่งให้ Browser จับ Pointer ไว้ที่ Element นี้เท่านั้น
-                // ทำให้ลากออกนอกพื้นที่ก็ยังถือว่าลาก Element นี้อยู่
                 e.preventDefault();
                 e.stopPropagation();
-                e.currentTarget.setPointerCapture(e.pointerId);
+                e.currentTarget.setPointerCapture(e.pointerId); // Key for touch drag
                 
                 const rect = e.currentTarget.getBoundingClientRect();
                 const isTouch = e.pointerType === 'touch';
-                
-                // Adjust offset specifically for touch to show item above finger
-                // For mouse, we keep it relative to click. For touch, we want it a bit higher.
                 let offsetX = e.clientX - rect.left;
                 let offsetY = e.clientY - rect.top;
 
+                // Move visual up for touch so finger doesn't hide it
                 if (isTouch) {
-                    // Center horizontal, move up vertical
                     offsetX = rect.width / 2;
-                    offsetY = rect.height * 1.5; // Lift it up significantly above finger
+                    offsetY = rect.height * 1.5;
                 }
 
-                setDraggedItem({ 
-                    ...animal, 
-                    offsetX: offsetX, 
-                    offsetY: offsetY,
-                    isTouch: isTouch
-                });
-                
+                setDraggedItem({ ...animal, offsetX, offsetY });
                 setDragPosition({ x: e.clientX, y: e.clientY });
             };
 
@@ -287,11 +249,6 @@
             const handlePointerUp = (e) => {
                 if (!draggedItem) return;
                 e.preventDefault();
-                
-                // For touch, the pointer up happens at the finger location.
-                // But our visual is offset. We need to check drop logic based on finger position or visual position.
-                // Standard logic uses finger position (e.clientX/Y) which is correct for intuitive dropping.
-                
                 const dropX = e.clientX;
                 const dropY = e.clientY;
                 let droppedCategory = null;
@@ -300,9 +257,6 @@
                     const basket = basketsRef.current[key];
                     if (basket) {
                         const rect = basket.getBoundingClientRect();
-                        // For touch, since the item is visually higher, users might aim with the item image.
-                        // But let's stick to pointer location for consistency, or check if pointer is *near* basket.
-                        // Simple collision: is pointer inside basket rect?
                         if (dropX >= rect.left && dropX <= rect.right && dropY >= rect.top && dropY <= rect.bottom) {
                             droppedCategory = key;
                         }
@@ -310,11 +264,8 @@
                 });
 
                 if (droppedCategory) {
-                    if (droppedCategory === draggedItem.category) {
-                        handleCorrectDrop(draggedItem.id);
-                    } else {
-                        handleWrongDrop();
-                    }
+                    if (droppedCategory === draggedItem.category) handleCorrectDrop(draggedItem.id);
+                    else handleWrongDrop();
                 }
                 setDraggedItem(null);
             };
@@ -323,15 +274,11 @@
                 if (sfxEnabled) playSFX('win');
                 speakName('เก่งมากๆๆ');
                 setFeedback({ type: 'correct', msg: 'เก่งมากๆๆ' });
-                
                 setAnimals(prev => prev.map(a => a.id === id ? { ...a, completed: true } : a));
                 setCompletedCount(prev => {
                     const newCount = prev + 1;
                     if (newCount === ANIMALS_DATA.length) {
-                        setTimeout(() => {
-                            setGameState('won');
-                            if(sfxEnabled) playSFX('win');
-                        }, 1000);
+                        setTimeout(() => { setGameState('won'); if(sfxEnabled) playSFX('win'); }, 1000);
                     }
                     return newCount;
                 });
@@ -382,8 +329,8 @@
                 <div className="w-full h-full bg-gradient-to-b from-sky-50 to-blue-100 flex flex-col overflow-hidden touch-none select-none font-sarabun fixed inset-0"
                     onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={(e) => e.preventDefault()}>
                     
-                    {/* Header */}
-                    <div className="bg-white/90 backdrop-blur-sm p-2 shadow-md flex justify-between items-center z-20 shrink-0">
+                    {/* Header: Fixed Height */}
+                    <div className="bg-white/90 backdrop-blur-sm p-2 shadow-md flex justify-between items-center z-20 shrink-0 h-14 md:h-16">
                         <h1 className="text-lg md:text-xl font-black text-blue-600 flex items-center gap-1 md:gap-2">🦁 <span className="hidden md:inline">สัตว์โลกหน้ารัก</span></h1>
                         <div className="flex gap-2 md:gap-4 items-center">
                             <div className="px-3 md:px-4 py-1 bg-yellow-100 rounded-full text-yellow-800 font-bold border-2 border-yellow-400 flex items-center text-sm md:text-base">⭐ {completedCount} / 16</div>
@@ -395,68 +342,79 @@
                         </div>
                     </div>
 
-                    {/* Game Area */}
-                    <div className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
+                    {/* Main Content: Flex Column */}
+                    <div className="flex-1 flex flex-col overflow-hidden relative">
+                        
+                        {/* Feedback Overlay */}
                         {feedback && (
-                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none w-full text-center">
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] pointer-events-none w-full text-center">
                                 <div className={`inline-block px-8 py-4 rounded-3xl shadow-2xl text-2xl md:text-3xl font-black animate-bounce-in border-4 mx-4 ${feedback.type === 'correct' ? 'bg-green-100 text-green-600 border-green-500' : 'bg-red-100 text-red-600 border-red-500'}`}>
                                     {feedback.type === 'correct' ? '✨ ' : '❌ '} {feedback.msg}
                                 </div>
                             </div>
                         )}
 
-                        {/* Baskets: 2 cols on mobile, 4 cols on md+ */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-2 bg-transparent shrink-0 h-[45%] md:h-[40%]">
-                            {CATEGORIES.map((cat) => (
-                                <div key={cat.id} ref={el => basketsRef.current[cat.id] = el} className={`relative flex flex-col items-center justify-start pt-1 md:pt-2 rounded-2xl border-2 md:border-4 shadow-xl backdrop-blur-sm transition-all overflow-hidden ${cat.color} ${cat.borderColor}`}>
-                                    <div className={`text-sm md:text-2xl font-black drop-shadow-md mb-1 bg-white/50 px-2 md:px-4 py-1 rounded-full ${cat.textColor} flex items-center gap-1`}>
-                                        <span className="text-lg md:text-2xl">{cat.icon}</span> 
-                                        <span className="truncate">{cat.name}</span>
-                                    </div>
-                                    <div className="flex flex-wrap content-start justify-center gap-1 p-1 w-full h-full overflow-hidden overflow-y-auto">
-                                        {animals.filter(a => a.category === cat.id && a.completed).map((animal) => (
-                                            <img key={animal.id} src={animal.src} alt={animal.name} className="w-8 h-8 md:w-12 md:h-12 object-contain animate-pop-in filter drop-shadow-sm" />
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Animals Source: 4 cols on mobile, 8 cols on md+ */}
-                        <div className="flex-1 bg-white/80 backdrop-blur-sm border-t-4 border-blue-200 relative p-2 md:p-4 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] overflow-hidden">
-                            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 px-4 md:px-8 py-1 md:py-2 rounded-full border-4 border-white text-white font-bold text-sm md:text-lg shadow-lg animate-pulse whitespace-nowrap">
-                                ลากสัตว์ไปใส่ในตะกร้า
-                            </div>
-                            
-                            <div className="grid grid-cols-4 md:grid-cols-8 gap-2 md:gap-4 justify-items-center content-start h-full overflow-y-auto pt-4 md:pt-6 pb-20">
-                                {remainingAnimals.map((animal) => (
-                                    <div key={animal.id} 
-                                         onPointerDown={(e) => handlePointerDown(e, animal)} 
-                                         onPointerEnter={() => speakName(animal.name)} 
-                                         className="cursor-grab active:cursor-grabbing w-14 h-14 md:w-24 md:h-24 p-1 md:p-2 rounded-full bg-white shadow-lg border-2 md:border-4 border-white ring-2 ring-blue-100 hover:scale-110 hover:shadow-2xl hover:ring-blue-400 hover:rotate-6 transition-all touch-none flex items-center justify-center group select-none -webkit-user-select-none">
-                                        <img src={animal.src} alt={animal.name} className="w-full h-full object-contain pointer-events-none group-hover:animate-wiggle select-none -webkit-user-drag-none" />
+                        {/* Top: Baskets (Fixed/Shrinkable area but maintained visibility) */}
+                        <div className="shrink-0 bg-transparent p-2 z-10 w-full max-w-6xl mx-auto">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {CATEGORIES.map((cat) => (
+                                    <div key={cat.id} ref={el => basketsRef.current[cat.id] = el} className={`relative flex flex-col items-center justify-start h-32 md:h-48 rounded-2xl border-2 md:border-4 shadow-xl backdrop-blur-sm transition-all overflow-hidden ${cat.color} ${cat.borderColor}`}>
+                                        <div className={`w-full text-center py-1 bg-white/40 font-black ${cat.textColor} text-sm md:text-xl truncate px-1`}>
+                                            <span className="text-lg md:text-2xl mr-1">{cat.icon}</span>{cat.name}
+                                        </div>
+                                        {/* Animals inside basket */}
+                                        <div className="flex-1 w-full p-1 flex flex-wrap content-start justify-center gap-1 overflow-y-auto custom-scrollbar">
+                                            {animals.filter(a => a.category === cat.id && a.completed).map((animal) => (
+                                                <img key={animal.id} src={animal.src} alt={animal.name} className="w-8 h-8 md:w-12 md:h-12 object-contain animate-pop-in filter drop-shadow-sm" />
+                                            ))}
+                                        </div>
                                     </div>
                                 ))}
-                                {remainingAnimals.length === 0 && (
-                                    <div className="col-span-full text-gray-400 flex flex-col items-center animate-pulse font-black mt-8">
-                                        <IconSparkles size={48} className="text-yellow-400 md:w-16 md:h-16" />
-                                        <span className="mt-2 text-xl md:text-2xl text-blue-400">สุดยอดไปเลย!</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
-                        {draggedItem && (
-                            <div className="fixed pointer-events-none z-50 w-20 h-20 md:w-32 md:h-32 drop-shadow-2xl" 
-                                 style={{ 
-                                     left: dragPosition.x, 
-                                     top: dragPosition.y, 
-                                     transform: `translate(-${draggedItem.offsetX}px, -${draggedItem.offsetY}px) scale(1.2) rotate(-5deg)` 
-                                 }}>
-                                <img src={draggedItem.src} alt={draggedItem.name} className="w-full h-full object-contain animate-bounce-slow" />
+                        {/* Bottom: Animals Source (Takes remaining space, Scrollable) */}
+                        <div className="flex-1 bg-white/90 backdrop-blur-sm border-t-4 border-blue-200 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col w-full max-w-6xl mx-auto">
+                            <div className="shrink-0 py-2 text-center relative z-10 bg-white/50">
+                                <span className="inline-block bg-blue-500 px-6 py-1 rounded-full border-4 border-white text-white font-bold text-sm md:text-lg shadow-lg">
+                                    ลากสัตว์ด้านล่างไปใส่ตะกร้า
+                                </span>
                             </div>
-                        )}
+                            
+                            {/* Scrollable Animal Grid */}
+                            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-20">
+                                <div className="grid grid-cols-4 md:grid-cols-8 gap-3 md:gap-6 justify-items-center content-start">
+                                    {remainingAnimals.map((animal) => (
+                                        <div key={animal.id} 
+                                             onPointerDown={(e) => handlePointerDown(e, animal)} 
+                                             onPointerEnter={() => speakName(animal.name)} 
+                                             className="cursor-grab active:cursor-grabbing w-16 h-16 md:w-24 md:h-24 p-1 md:p-2 rounded-full bg-white shadow-lg border-2 md:border-4 border-white ring-2 ring-blue-100 hover:scale-110 hover:shadow-2xl hover:ring-blue-400 hover:rotate-6 transition-all touch-none flex items-center justify-center group select-none relative z-10">
+                                            <img src={animal.src} alt={animal.name} className="w-full h-full object-contain pointer-events-none select-none" />
+                                        </div>
+                                    ))}
+                                    {remainingAnimals.length === 0 && (
+                                        <div className="col-span-full text-gray-400 flex flex-col items-center animate-pulse font-black mt-8">
+                                            <IconSparkles size={48} className="text-yellow-400 md:w-16 md:h-16" />
+                                            <span className="mt-2 text-xl md:text-2xl text-blue-400">สุดยอดไปเลย!</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
+
+                    {/* Dragged Item Proxy (High Z-Index) */}
+                    {draggedItem && (
+                        <div className="fixed pointer-events-none z-[100] w-20 h-20 md:w-32 md:h-32 drop-shadow-2xl" 
+                             style={{ 
+                                 left: dragPosition.x, 
+                                 top: dragPosition.y, 
+                                 transform: `translate(-${draggedItem.offsetX}px, -${draggedItem.offsetY}px) scale(1.2) rotate(-5deg)` 
+                             }}>
+                            <img src={draggedItem.src} alt={draggedItem.name} className="w-full h-full object-contain animate-bounce-slow" />
+                        </div>
+                    )}
                 </div>
             );
         }
